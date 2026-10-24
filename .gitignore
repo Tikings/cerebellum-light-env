@@ -1,0 +1,10 @@
+*.egg-info
+__pycache__/
+.ipynb_checkpoints/
+.snakemake/
+.DS_Store
+# imaging data never goes in this repo
+*.nii
+*.nii.gz
+*.npz
+*.npy

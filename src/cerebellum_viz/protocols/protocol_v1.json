@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "date": "2026-09-28",
+  "note": "Initial protocol. Superior variant B2 renamed 2A.",
+  "images": "Preprocessed T1w: MNI152-registered, 0.5 mm isotropic, cropped around the cerebellum (cerebellar_tiles). Median sagittal plane located with the aqueduct of Sylvius and the fastigium.",
+  "items": {
+    "superior": {
+      "label": "Superior fastigial zone (SZFg)",
+      "description": "Folia in the SZFg, between the velum boundary and the first large-enough folium of the culmen (excluded). A folium is large enough if it reaches the convex outline of the vermis.",
+      "choices": {
+        "1": "1 folium in the SZFg",
+        "2": "2 folia in the SZFg",
+        "1.5A": "1.5 folia: first folium at least 2x bigger than the second (second usually does not reach the convex outline)",
+        "1.5B": "1.5 folia: opposite of 1.5A (the first, smaller folium can reach the convex outline)",
+        "1B": "1 folium splitting into 2 smaller folia (bifid): one connection to the SZFg",
+        "2B": "2 folia in the SZFg, the second one bifid",
+        "2A": "2 folia in the SZFg, the first one bifid"
+      }
+    },
+    "inferior": {
+      "label": "Inferior vermis (B6 pyramis, B7 uvula)",
+      "description": "Attachment of B6 (pyramis branch) and B7 (uvula branch) relative to the ZFg and B5 (folium branch).",
+      "choices": {
+        "1": "B6 and B7 connected to the ZFg",
+        "2": "B7 connected to the ZFg, B6 translated onto B5",
+        "3": "B6 and B7 translated onto B5, none on the ZFg, clearly separated",
+        "4": "B6 and B7 translated onto B5, attached at the same region",
+        "5": "B6 and B7 translated onto B5, one attached on the other (e.g. B7 on B6)",
+        "6": "One attached on the other (as 5), attachment on the fastigial zone"
+      }
+    },
+    "lingula": {
+      "label": "Lingular zone",
+      "description": "Presence of a folium on the superior medullary velum.",
+      "choices": {
+        "0": "Absent",
+        "1": "Present"
+      }
+    }
+  },
+  "extra_choices": {
+    "ND": "Not determinable (e.g. image quality too poor)",
+    "S": "Strange: folia clearly visible but configuration not in the table"
+  },
+  "comment_required_for": ["S"],
+  "quality": {
+    "ok": "No quality issue",
+    "motion": "Motion artefact",
+    "cropped": "Region cut by the crop",
+    "low_contrast": "Poor grey/white contrast"
+  }
+}

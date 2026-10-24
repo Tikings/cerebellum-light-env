@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cerebellum_viz"
+version = "0.1.0"
+description = "napari visualisation of cerebellum volumes and the blinded vermis annotation tool"
+authors = [{ name = "Timothée Sanchez", email = "timothee.sanchez.faly@gmail.com" }]
+requires-python = ">=3.11"  # hashlib.file_digest
+# Installed by environment.yml (conda-forge) before `pip install -e .`, so pip finds them satisfied
+# and installs nothing ; listed so a plain `pip install .` elsewhere also works.
+dependencies = ["napari>=0.7,<0.8", "nibabel", "numpy", "pandas", "magicgui", "scikit-image"]
+
+[project.scripts]
+cerebellum-viz = "cerebellum_viz.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+cerebellum_viz = ["protocols/*.json"]

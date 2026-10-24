@@ -1,0 +1,35 @@
+# Light, portable working env : napari + nibabel + cerebellum_viz, no BrainVISA.
+# Linux (linux-64) and macOS Apple Silicon (osx-arm64).
+#
+#   mamba env create -f environment.yml     (or conda env create -f environment.yml)
+#   mamba activate cerebellum-light
+#   mamba env update -f environment.yml --prune   (after editing this file)
+name: cerebellum-light
+channels:
+  - conda-forge
+  - bioconda        # snakemake
+  - nodefaults
+dependencies:
+  - python=3.11
+  - pip
+  # visualisation
+  - napari>=0.7,<0.8
+  - pyqt
+  - magicgui
+  # images and analysis
+  - nibabel
+  - numpy
+  - scipy
+  - pandas
+  - scikit-image
+  - matplotlib
+  - simpleitk
+  - trimesh
+  # notebooks
+  - jupyter
+  - ipykernel
+  # pipelines
+  - snakemake>=9,<10
+  - tqdm
+  - pip:
+      - -e .        # cerebellum_viz (src/), editable
