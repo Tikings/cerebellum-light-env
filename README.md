@@ -19,6 +19,16 @@ cerebellum-viz --help
 
 After editing `environment.yml`: `mamba env update -f environment.yml --prune`.
 
+With pixi instead (`pixi.toml` + `pixi.lock`, same packages, solved for both platforms):
+
+```bash
+pixi install
+pixi run viz view <dataset_root> <sid>     # or `pixi shell`, then cerebellum-viz ...
+```
+
+Keep `environment.yml` and `pixi.toml` in sync when adding a package (`pixi add <pkg>` updates the
+lock).
+
 ## Use
 
 ```bash

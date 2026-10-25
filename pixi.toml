@@ -1,0 +1,35 @@
+# pixi alternative to environment.yml (same packages ; keep the two in sync)
+#   pixi install          then   pixi run viz view <root> <sid>   or   pixi shell
+[workspace]
+name = "cerebellum-light"
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64", "osx-arm64"]
+version = "0.1.0"
+
+[dependencies]
+python = "3.11.*"
+# visualisation
+napari = ">=0.7,<0.8"
+pyqt = "*"
+magicgui = "*"
+# images and analysis
+nibabel = "*"
+numpy = "*"
+scipy = "*"
+pandas = "*"
+scikit-image = "*"
+matplotlib = "*"
+simpleitk = "*"
+trimesh = "*"
+# notebooks
+jupyter = "*"
+ipykernel = "*"
+# pipelines
+snakemake = ">=9,<10"
+tqdm = "*"
+
+[pypi-dependencies]
+cerebellum_viz = { path = ".", editable = true }   # the `pip: -e .` of environment.yml
+
+[tasks]
+viz = "cerebellum-viz"

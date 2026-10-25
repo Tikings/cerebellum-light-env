@@ -8,3 +8,5 @@ __pycache__/
 *.nii.gz
 *.npz
 *.npy
+# pixi environments
+.pixi/
