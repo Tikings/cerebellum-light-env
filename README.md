@@ -36,6 +36,32 @@ viewer, sub = view("/path/to/dataset", "sub-XXXX", ["t1w", "zscore"])
 
 Images are read with nibabel and reoriented to RSA (superior up, anterior left in sagittal views).
 
+## Protocol v2 : landmarks
+
+`protocols/protocol_v2.json` keeps the v1 inferior and lingula items. The superior item is reduced
+to 1 or 2 folia, with a "bifid" tick per folium : the 1.5 configurations come post hoc from the
+folium lengths. A ticked answer is stored as one code, base + "+tick" : `2+bifid1`.
+It adds landmarks placed on one mid-sagittal slice : fastigium, culmen connection, B5 root and
+branching (always), B6 / B7 attachments, SZFg folia connections, tips and split points (of a bifid
+folium), lingula root and tip. Which landmarks a case needs depends on its codes (none for ND or S).
+
+In `annotate`, choosing the codes shows exactly the landmarks they need (small cross-hair pointers :
+four arms, a gap and a centre dot), parked in a labelled column left of the image ; changing a code removes or adds
+landmarks (a landmark hidden and shown again keeps its place). The only action on them is to drag
+them into place, one at a time : adding, deleting and multi-selecting are undone, and napari's
+layer panels are hidden (contrast and reset view are in the form). The landmarks follow the
+sagittal slice shown, and the slice they are saved on is the case's mid-sagittal slice. A case is
+saved only when every landmark has been dragged off its parking place, inside the image.
+Landmarks go to `answers/<rater>_landmarks.csv` (voxel of the RSA image + mm through its affine),
+under the same `save_id` as the codes. Distances in mm, defined in the protocol's `measures` :
+
+```python
+from cerebellum_viz import AnnotationProject
+AnnotationProject.load("/path/to/project").session("rater").measures()
+```
+
+A new project uses v2 with `AnnotationProject.create(..., protocol_path=protocol_file(2))`.
+
 ## What is included
 
 | Purpose | Packages |

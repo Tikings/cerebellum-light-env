@@ -22,9 +22,15 @@ def reorient(image, axcodes=("R", "S", "A")):
 class Modality(ABC): 
     layer_type : str = "image"
 
-    def __init__(self, path=None, data=None, spacing=(1,1,1), name = None) : 
+    def __init__(self, path=None, data=None, spacing=(1,1,1), name = None) :
         self.path, self._data, self.spacing = path, data, tuple(spacing)
         self.name = name or (Path(path).name if path else type(self).__name__)
+        self.affine = None  # voxel (of `data`, RSA) -> mm, set by load() ; unknown for in-memory data
+
+    def to_mm(self, voxel) :
+        if self.affine is None :
+            raise ValueError(f"{self.name} : no affine (data not loaded from a file)")
+        return tuple(float(v) for v in (self.affine @ [*voxel, 1.0])[:3])
 
     @cached_property
     def data(self) : 
@@ -50,6 +56,7 @@ class ScalarVolume(Modality) :
     def load(self) :
         img = reorient(nib.load(self.path), ("R","S","A"))
         self.spacing = img.header.get_zooms()
+        self.affine = img.affine
         return np.asarray(img.dataobj, dtype=np.float32)
 
 class LabelVolume(ScalarVolume) : 
@@ -188,5 +195,6 @@ class Dataset :
             mods[key] = cls(path=path, name=key)
         return Subject(sid, self.path / sid, mods)
 
-    def list_subjects(self, pattern = "sub-*"):
-        return sorted(p.name for p in self.path.glob(pattern) if p.is_dir())
+    def list_subjects(self, pattern = "*"):
+        # "*" : sids may be bare ids (HCP) as well as BIDS "sub-XXXX" ; hidden folders skipped
+        return sorted(p.name for p in self.path.glob(pattern) if p.is_dir() and not p.name.startswith("."))

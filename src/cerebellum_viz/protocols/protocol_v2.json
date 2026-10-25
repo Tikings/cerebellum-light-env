@@ -1,0 +1,268 @@
+{
+  "version": 2,
+  "date": "2026-10-24",
+  "note": "v1 items, with the superior item reduced to 1 or 2 folia plus a bifid tick per folium (1.5 configurations derived post hoc from the folium lengths), and landmarks placed on one mid-sagittal slice, from which distances in mm are measured. Landmark definitions are a first draft.",
+  "images": "Preprocessed T1w: MNI152-registered, 0.5 mm isotropic, cropped around the cerebellum (cerebellar_tiles). Median sagittal plane located with the aqueduct of Sylvius and the fastigium.",
+  "items": {
+    "superior": {
+      "label": "Superior fastigial zone (SZFg)",
+      "description": "Folia in the SZFg, between the velum boundary and the first large-enough folium of the culmen (excluded). A folium is large enough if it reaches the convex outline of the vermis. Tick a folium that splits into 2 smaller folia (bifid). 1.5 configurations are not coded : they come from the folium lengths.",
+      "choices": {
+        "1": "1 folium in the SZFg",
+        "2": "2 folia in the SZFg"
+      },
+      "ticks": {
+        "bifid1": {
+          "label": "folium 1 bifid",
+          "for": [
+            "1",
+            "2"
+          ]
+        },
+        "bifid2": {
+          "label": "folium 2 bifid",
+          "for": [
+            "2"
+          ]
+        }
+      }
+    },
+    "inferior": {
+      "label": "Inferior vermis (B6 pyramis, B7 uvula)",
+      "description": "Attachment of B6 (pyramis branch) and B7 (uvula branch) relative to the ZFg and B5 (folium branch).",
+      "choices": {
+        "1": "B6 and B7 connected to the ZFg",
+        "2": "B7 connected to the ZFg, B6 translated onto B5",
+        "3": "B6 and B7 translated onto B5, none on the ZFg, clearly separated",
+        "4": "B6 and B7 translated onto B5, attached at the same region",
+        "5": "B6 and B7 translated onto B5, one attached on the other (e.g. B7 on B6)",
+        "6": "One attached on the other (as 5), attachment on the fastigial zone"
+      }
+    },
+    "lingula": {
+      "label": "Lingular zone",
+      "description": "Presence of a folium on the superior medullary velum.",
+      "choices": {
+        "0": "Absent",
+        "1": "Present"
+      }
+    }
+  },
+  "extra_choices": {
+    "ND": "Not determinable (e.g. image quality too poor)",
+    "S": "Strange: folia clearly visible but configuration not in the table"
+  },
+  "comment_required_for": [
+    "S"
+  ],
+  "quality": {
+    "ok": "No quality issue",
+    "motion": "Motion artefact",
+    "cropped": "Region cut by the crop",
+    "low_contrast": "Poor grey/white contrast"
+  },
+  "landmarks": {
+    "fastigium": {
+      "label": "Fastigium",
+      "description": "Apex of the roof of the fourth ventricle.",
+      "item": null,
+      "required": true,
+      "color": "#ffd23f"
+    },
+    "culmen_conn": {
+      "label": "Culmen connection",
+      "description": "Point where the white-matter branch of the culmen joins the trunk, on the fastigial side.",
+      "item": null,
+      "required": true,
+      "color": "#e6a700"
+    },
+    "b5_root": {
+      "label": "B5 root",
+      "description": "Point where B5 (folium branch) leaves the central white-matter trunk: the end of the fastigial zone along B5.",
+      "item": null,
+      "required": true,
+      "color": "#f5f5f5"
+    },
+    "b5_branch": {
+      "label": "B5 branching",
+      "description": "Point of the B5 division that separates the declive, the folium and the tuber (not necessarily the first split of B5).",
+      "item": null,
+      "required": true,
+      "color": "#a8a8a8"
+    },
+    "b6_attach": {
+      "label": "B6 attachment",
+      "description": "Point where the white-matter branch of B6 (pyramis) joins the tree (ZFg, B5 or B7).",
+      "item": "inferior",
+      "required": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6"
+      ],
+      "color": "#eb6834"
+    },
+    "b7_attach": {
+      "label": "B7 attachment",
+      "description": "Point where the white-matter branch of B7 (uvula) joins the tree (ZFg, B5 or B6).",
+      "item": "inferior",
+      "required": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6"
+      ],
+      "color": "#b8336a"
+    },
+    "sup1_conn": {
+      "label": "SZFg folium 1, connection",
+      "description": "Point where the white-matter branch of the first SZFg folium (closest to the velum) joins the trunk.",
+      "item": "superior",
+      "required": [
+        "1",
+        "2"
+      ],
+      "color": "#2a78d6"
+    },
+    "sup1_tip": {
+      "label": "SZFg folium 1, tip",
+      "description": "Distal end of the white-matter lamina of the first SZFg folium (bifid : of its longer branch).",
+      "item": "superior",
+      "required": [
+        "1",
+        "2"
+      ],
+      "color": "#7fb3f0"
+    },
+    "sup1_split": {
+      "label": "SZFg folium 1, split",
+      "description": "Point where the bifid first SZFg folium splits into its two branches.",
+      "item": "superior",
+      "required": {
+        "tick": "bifid1"
+      },
+      "color": "#0b4f9c"
+    },
+    "sup2_conn": {
+      "label": "SZFg folium 2, connection",
+      "description": "Point where the white-matter branch of the second SZFg folium joins the trunk.",
+      "item": "superior",
+      "required": [
+        "2"
+      ],
+      "color": "#1b9e77"
+    },
+    "sup2_tip": {
+      "label": "SZFg folium 2, tip",
+      "description": "Distal end of the white-matter lamina of the second SZFg folium (bifid : of its longer branch).",
+      "item": "superior",
+      "required": [
+        "2"
+      ],
+      "color": "#7fd6b9"
+    },
+    "sup2_split": {
+      "label": "SZFg folium 2, split",
+      "description": "Point where the bifid second SZFg folium splits into its two branches.",
+      "item": "superior",
+      "required": {
+        "tick": "bifid2"
+      },
+      "color": "#0d6b4f"
+    },
+    "lingula_root": {
+      "label": "Lingula, root",
+      "description": "Point where the white matter of the lingular folium leaves the velum.",
+      "item": "lingula",
+      "required": [
+        "1"
+      ],
+      "color": "#9467bd"
+    },
+    "lingula_tip": {
+      "label": "Lingula, tip",
+      "description": "Distal end of the lingular folium.",
+      "item": "lingula",
+      "required": [
+        "1"
+      ],
+      "color": "#c5b0d5"
+    }
+  },
+  "measures": {
+    "ref_fastigium_b5root": {
+      "from": "fastigium",
+      "to": "b5_root",
+      "description": "Length of the fastigial zone along B5 (reference scale)."
+    },
+    "culmen_from_fastigium": {
+      "from": "fastigium",
+      "to": "culmen_conn",
+      "description": "How far the culmen connection sits from the fastigium."
+    },
+    "b5_branch_from_root": {
+      "from": "b5_root",
+      "to": "b5_branch",
+      "description": "Length of the B5 stem up to its declive / folium / tuber division."
+    },
+    "b6_from_fastigium": {
+      "from": "fastigium",
+      "to": "b6_attach",
+      "description": "How far the B6 attachment sits from the fastigium."
+    },
+    "b7_from_fastigium": {
+      "from": "fastigium",
+      "to": "b7_attach",
+      "description": "How far the B7 attachment sits from the fastigium."
+    },
+    "b6_from_b5root": {
+      "from": "b5_root",
+      "to": "b6_attach",
+      "description": "B6 attachment relative to the end of the fastigial zone."
+    },
+    "b7_from_b5root": {
+      "from": "b5_root",
+      "to": "b7_attach",
+      "description": "B7 attachment relative to the end of the fastigial zone."
+    },
+    "b6_b7": {
+      "from": "b6_attach",
+      "to": "b7_attach",
+      "description": "Distance between the B6 and B7 attachments (together vs separated)."
+    },
+    "sup1_length": {
+      "from": "sup1_conn",
+      "to": "sup1_tip",
+      "description": "Length of the first SZFg folium."
+    },
+    "sup2_length": {
+      "from": "sup2_conn",
+      "to": "sup2_tip",
+      "description": "Length of the second SZFg folium (1.5 vs 2 as a ratio with sup1_length)."
+    },
+    "sup_conn_gap": {
+      "from": "sup1_conn",
+      "to": "sup2_conn",
+      "description": "Distance between the two SZFg connections (one vs two connections)."
+    },
+    "sup1_split_from_conn": {
+      "from": "sup1_conn",
+      "to": "sup1_split",
+      "description": "Stem length of the bifid first folium before it splits."
+    },
+    "sup2_split_from_conn": {
+      "from": "sup2_conn",
+      "to": "sup2_split",
+      "description": "Stem length of the bifid second folium before it splits."
+    },
+    "lingula_length": {
+      "from": "lingula_root",
+      "to": "lingula_tip",
+      "description": "Length of the lingular folium."
+    }
+  }
+}

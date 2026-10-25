@@ -52,8 +52,24 @@ class Protocol :
         # Item-specific choices + extra choices (ND, S) shared by all items
         return {**self.spec["items"][item]["choices"], **self.spec["extra_choices"]}
 
+    # ---- Ticks (protocol >= 2) : boolean refinements of an item's code, e.g. "bifid1" ----
+    # A ticked answer is stored as one code, base + "+tick" per tick : "2+bifid1+bifid2"
+    def ticks(self, item) -> dict :
+        return self.spec["items"][item].get("ticks", {})
+
+    @staticmethod
+    def split_code(code) -> tuple[str, set] :
+        base, *ticks = str(code).split("+")
+        return base, set(ticks)
+
+    def join_code(self, item, base, ticked) -> str :
+        # Ticks in protocol order, and only those allowed for this base code
+        allowed = [t for t, spec in self.ticks(item).items() if t in ticked and str(base) in spec["for"]]
+        return "+".join([str(base), *allowed])
+
     def label(self, item, code):
-        return self.valid_codes(item)[str(code)]
+        base, ticked = self.split_code(code)
+        return ", ".join([self.valid_codes(item)[base], *(self.ticks(item)[t]["label"] for t in sorted(ticked))])
 
     def check_answer(self, item, code, quality, comment) :
         # JSON keys are always strings
@@ -61,12 +77,64 @@ class Protocol :
         if item not in self.spec["items"] :
             raise ValueError(f"Item don't exist in protocol. \nAvailable items in this protocol : \n{list(self.spec['items'])} ")
         valid = self.valid_codes(item)
-        if code not in valid :
+        base, ticked = self.split_code(code)
+        if base not in valid :
             raise ValueError(f"Code '{code}' don't exist in this item ({item}). \nAvailable codes in this item : \n{list(valid)} ")
+        bad = [t for t in ticked if t not in self.ticks(item) or base not in self.ticks(item)[t]["for"]]
+        if bad :
+            raise ValueError(f"Ticks {bad} are not allowed with code '{base}' of item '{item}'")
+        code = base
         if code in self.spec["comment_required_for"] and not comment :
             raise ValueError(f"Comment is empty for a code with required comment ({item} : {code}).")
         if quality not in self.spec["quality"] :
             raise ValueError(f"{quality} is not a quality tag.")
+
+    # ---- Landmarks (protocol >= 2 ; optional key, so v1 protocols have none) ----
+    @property
+    def landmarks(self) -> dict :
+        return self.spec.get("landmarks", {})
+
+    @property
+    def measures(self) -> dict :
+        return self.spec.get("measures", {})
+
+    def required_landmarks(self, codes : dict) -> list[str] :
+        """
+        Landmarks that must be placed given the codes {item : code} of the case.
+        `required` is true (always), false (never), the list of base codes of its item that need
+        it (an item coded ND or S therefore needs none of its landmarks), or {"tick" : name} :
+        needed when that tick of its item is set.
+        """
+        out = []
+        for name, spec in self.landmarks.items() :
+            req = spec["required"]
+            base, ticked = self.split_code(codes.get(spec["item"], ""))
+            if (req is True or (isinstance(req, list) and base in req)
+                    or (isinstance(req, dict) and req["tick"] in ticked)) :
+                out.append(name)
+        return out
+
+    def check_landmarks(self, codes : dict, landmarks : dict) :
+        unknown = [n for n in landmarks if n not in self.landmarks]
+        if unknown :
+            raise ValueError(f"Unknown landmarks {unknown}. Available : {list(self.landmarks)}")
+        # Exactly the landmarks the codes need : the viewer shows those and no other
+        required = self.required_landmarks(codes)
+        missing = [n for n in required if n not in landmarks]
+        if missing :
+            raise ValueError(f"Landmarks required by the codes are not placed : {missing}")
+        extra = [n for n in landmarks if n not in required]
+        if extra :
+            raise ValueError(f"Landmarks not needed by the codes : {extra}")
+
+    def measure(self, positions : dict) -> dict :
+        """{measure : distance} from {landmark : (x, y, z) in mm} ; NaN when a landmark is absent."""
+        out = {}
+        for name, m in self.measures.items() :
+            a, b = positions.get(m["from"]), positions.get(m["to"])
+            out[name] = (float(np.linalg.norm(np.subtract(a, b)))
+                         if a is not None and b is not None else float("nan"))
+        return out
 
     def validate(self):
         if not isinstance(self.version, int) :
@@ -83,6 +151,15 @@ class Protocol :
             n_choices = len(choices)
             if n_choices < 2 :
                 raise ValueError(f"Item '{item}' don't have enough choices : {n_choices}")
+            for tick, spec in self.ticks(item).items() :
+                if not re.fullmatch(r"[A-Za-z0-9_]+", tick) :
+                    raise ValueError(f"Tick name '{tick}' must only hold letters, digits or '_'")
+                bad = [c for c in spec.get("for", []) if c not in choices]
+                if "label" not in spec or not spec.get("for") or bad :
+                    raise ValueError(f"Tick '{tick}' of item '{item}' needs a label and `for` codes "
+                                     f"among its choices (bad : {bad})")
+            if any("+" in c for c in choices) :
+                raise ValueError(f"Item '{item}' : '+' is reserved to join ticks to a code")
 
         # comments are required for extra codes only
         for code in self.spec["comment_required_for"] :
@@ -91,6 +168,33 @@ class Protocol :
 
         if not self.spec["quality"] :
             raise ValueError("Quality rating comments are empty...")
+
+        for name, spec in self.landmarks.items() :
+            if not re.fullmatch(r"[A-Za-z0-9_]+", name) :
+                raise ValueError(f"Landmark name '{name}' must only hold letters, digits or '_'")
+            missing = {"label", "description", "item", "required", "color"} - spec.keys()
+            if missing :
+                raise KeyError(f"Landmark '{name}' is missing keys : {sorted(missing)}")
+            item, req = spec["item"], spec["required"]
+            if item is not None and item not in self.spec["items"] :
+                raise ValueError(f"Landmark '{name}' refers to an unknown item : {item}")
+            if isinstance(req, list) :
+                if item is None :
+                    raise ValueError(f"Landmark '{name}' : a list of codes in `required` needs an item")
+                bad = [c for c in req if c not in self.valid_codes(item)]
+                if bad :
+                    raise ValueError(f"Landmark '{name}' : codes {bad} are not codes of item '{item}'")
+            elif isinstance(req, dict) :
+                if item is None or req.get("tick") not in self.ticks(item) :
+                    raise ValueError(f"Landmark '{name}' : `required` names a tick its item does not have")
+            elif not isinstance(req, bool) :
+                raise TypeError(f"Landmark '{name}' : `required` must be true, false, a list of codes "
+                                f"or {{\"tick\" : name}}")
+
+        for name, m in self.measures.items() :
+            bad = [m.get(k) for k in ("from", "to") if m.get(k) not in self.landmarks]
+            if bad :
+                raise ValueError(f"Measure '{name}' refers to unknown landmarks : {bad}")
 
     def to_file(self, path : str | Path): 
         path = Path(path)
@@ -349,9 +453,16 @@ class AnnotationSession :
     appear in it, so the file does not reveal which cases are repeats.
     All rows written by one `save` share a `save_id` ; the latest save of a case wins,
     so re-saving a case corrects it without rewriting the file.
+    Landmarks (protocol >= 2) go to a second CSV, `<answers>_landmarks.csv`, one row per point,
+    under the save_id of the codes they were saved with : the landmarks of a case are those of
+    its latest code save. They are written first, so a crash between the two files leaves
+    orphan landmark rows (ignored), never codes whose landmarks are missing.
     """
     ANSWER_COLUMNS = ["case", "save_id", "item", "code", "quality", "comment",
                       "protocol_version", "seconds"]
+    # i, j, k : voxel of the displayed (RSA) image ; x_mm, y_mm, z_mm : through its affine
+    LANDMARK_COLUMNS = ["case", "save_id", "landmark", "i", "j", "k", "x_mm", "y_mm", "z_mm",
+                        "protocol_version"]
 
     def __init__(self, project : AnnotationProject, rater : str, layout : dict = DEFAULT_LAYOUT) :
         if rater not in project.meta["raters"] :
@@ -361,10 +472,12 @@ class AnnotationSession :
         self.info = project.meta["raters"][rater]
         self.protocol = project.protocol  # answers are always written with the current protocol
         self.answers_path = project.root / self.info["answers"]
+        self.landmarks_path = self.answers_path.with_name(f"{self.answers_path.stem}_landmarks.csv")
         self.dataset = Dataset(project.meta["dataset_root"], "annotation", layout)
         self._key = self._load_key()
         self._sids = None  # pid -> sid, read from master.csv only when an image is needed
         self._answers = self._load_answers()
+        self._landmarks = self._load_landmarks()
 
     def _load_key(self) -> pd.DataFrame :
         path = self.project.root / self.info["key"]
@@ -394,6 +507,24 @@ class AnnotationSession :
                 for r in rows.itertuples()}
         return answers
 
+    def _load_landmarks(self) -> dict :
+        # (case, save_id) -> {landmark : {voxel, mm}} ; matched to the latest code save in get_landmarks
+        if not self.landmarks_path.exists() :
+            return {}
+        df = pd.read_csv(self.landmarks_path, dtype={"case" : int, "save_id" : str, "landmark" : str})
+        return {(int(case), save_id) : {r.landmark : dict(voxel=(r.i, r.j, r.k), mm=(r.x_mm, r.y_mm, r.z_mm))
+                                       for r in rows.itertuples()}
+                for (case, save_id), rows in df.groupby(["case", "save_id"], sort=False)}
+
+    @staticmethod
+    def _append(path : Path, rows : list[dict], columns : list[str]) :
+        path.parent.mkdir(exist_ok=True)
+        new_file = not path.exists()
+        with open(path, "a", newline="") as f :
+            pd.DataFrame(rows, columns=columns).to_csv(f, header=new_file, index=False)
+            f.flush()
+            os.fsync(f.fileno())  # auto-save : the row is on disk before the next case opens
+
     @property
     def order(self) -> list[int] :
         return list(self._key.index)
@@ -410,10 +541,14 @@ class AnnotationSession :
         pid = self._key.loc[case, "pid"]
         return self.dataset.load_sub(self._sids[pid], modalities or ["t1w"], strict=True)
 
-    def save(self, case : int, answers : dict, seconds : float | None = None) :
+    def save(self, case : int, answers : dict, seconds : float | None = None,
+             landmarks : dict | None = None) :
         """
         answers : {item : {"code" : ..., "quality" : ..., "comment" : ...}} for EVERY item
-        of the current protocol. Everything is checked before anything is written.
+        of the current protocol.
+        landmarks : {name : {"voxel" : (i, j, k), "mm" : (x, y, z)}}, voxel in the displayed
+        (RSA) image. Required by a protocol with landmarks ; all points on one sagittal slice
+        (same i). Everything is checked before anything is written.
         """
         case = int(case)
         if case not in self._key.index :
@@ -426,6 +561,14 @@ class AnnotationSession :
         for item in items :
             a = answers[item]
             self.protocol.check_answer(item, a["code"], a["quality"], a.get("comment", ""))
+        landmarks = landmarks or {}
+        if landmarks and not self.protocol.landmarks :
+            raise ValueError(f"Protocol v{self.protocol.version} has no landmarks, {len(landmarks)} given")
+        self.protocol.check_landmarks({i : str(answers[i]["code"]) for i in items}, landmarks)
+        slices = {int(round(lm["voxel"][0])) for lm in landmarks.values()}
+        if len(slices) > 1 :
+            raise ValueError(f"Landmarks lie on several sagittal slices {sorted(slices)} : "
+                             f"place them all on the mid-sagittal slice")
 
         save_id = datetime.now().isoformat(timespec="microseconds")
         rows = [dict(case=case, save_id=save_id, item=item, code=str(answers[item]["code"]),
@@ -433,12 +576,16 @@ class AnnotationSession :
                      protocol_version=self.protocol.version,
                      seconds="" if seconds is None else round(float(seconds), 1))
                 for item in items]
-        self.answers_path.parent.mkdir(exist_ok=True)
-        new_file = not self.answers_path.exists()
-        with open(self.answers_path, "a", newline="") as f :
-            pd.DataFrame(rows, columns=self.ANSWER_COLUMNS).to_csv(f, header=new_file, index=False)
-            f.flush()
-            os.fsync(f.fileno())  # auto-save : the row is on disk before the next case opens
+        if landmarks :
+            lm_rows = [dict(case=case, save_id=save_id, landmark=name,
+                            **{c : round(float(v), 3) for c, v in zip(("i", "j", "k"), lm["voxel"])},
+                            **{c : round(float(v), 3) for c, v in zip(("x_mm", "y_mm", "z_mm"), lm["mm"])},
+                            protocol_version=self.protocol.version)
+                       for name, lm in landmarks.items()]
+            self._append(self.landmarks_path, lm_rows, self.LANDMARK_COLUMNS)  # first : see class doc
+            self._landmarks[(case, save_id)] = {
+                name : dict(voxel=tuple(lm["voxel"]), mm=tuple(lm["mm"])) for name, lm in landmarks.items()}
+        self._append(self.answers_path, rows, self.ANSWER_COLUMNS)
         self._answers[case] = {"_save_id" : save_id} | {
             r["item"] : dict(code=r["code"], quality=r["quality"], comment=r["comment"],
                              protocol_version=r["protocol_version"], seconds=seconds)
@@ -447,6 +594,20 @@ class AnnotationSession :
     def get(self, case : int) -> dict | None :
         a = self._answers.get(int(case))
         return None if a is None else {k : v for k, v in a.items() if k != "_save_id"}
+
+    def get_landmarks(self, case : int) -> dict :
+        # Landmarks of the latest code save of the case ({} if none or no landmarks saved)
+        a = self._answers.get(int(case))
+        return {} if a is None else self._landmarks.get((int(case), a["_save_id"]), {})
+
+    def measures(self) -> pd.DataFrame :
+        """One row per saved case : the codes, then the protocol's distances in mm (latest saves)."""
+        rows = []
+        for case in sorted(self._answers) :
+            codes = {item : a["code"] for item, a in self.get(case).items()}
+            mm = {name : lm["mm"] for name, lm in self.get_landmarks(case).items()}
+            rows.append({"case" : case} | codes | self.protocol.measure(mm))
+        return pd.DataFrame(rows)
 
     def progress(self) -> tuple[int, int] :
         return len(self._answers), len(self._key)
