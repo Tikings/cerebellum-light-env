@@ -33,6 +33,7 @@ def view(root : str | Path, sid : str, modalities : list[str] | None = None, ses
 
 
 UNANSWERED = ""  # blank first entry : a case cannot be saved with a default left untouched
+MIDDLE = 3  # napari's mouse button numbers : 1 left, 2 right, 3 middle
 
 def annotate(project_root : str | Path, rater : str, modalities : list[str] | None = None,
              layout : dict = DEFAULT_LAYOUT, viewer=None) :
@@ -62,6 +63,22 @@ def annotate(project_root : str | Path, rater : str, modalities : list[str] | No
     protocol = session.protocol
     order = session.order
     viewer = viewer or napari.Viewer(title=f"Annotation - {rater}")
+
+    def middle_pan(viewer, event) :
+        # Middle-button drag pans the image in any layer mode (napari only pans in pan_zoom mode,
+        # and with the left button) : the world point grabbed at press stays under the cursor
+        if event.button != MIDDLE :
+            return
+        grab = np.array(event.position)[list(event.dims_displayed)]
+        yield
+        while event.type == "mouse_move" :
+            here = np.array(event.position)[list(event.dims_displayed)]
+            center = np.array(viewer.camera.center, dtype=float)
+            center[-len(grab):] -= here - grab
+            viewer.camera.center = tuple(center)
+            yield
+
+    viewer.mouse_drag_callbacks.append(middle_pan)
 
     # ---- Widgets, built from the protocol ----
     header = Label(value="")
@@ -109,7 +126,7 @@ def annotate(project_root : str | Path, rater : str, modalities : list[str] | No
         lm_rows = [Label(value="<b>landmarks</b>"),
                    Label(value="<small>The codes show the landmarks they need, parked left of the image. "
                                "Drag each one into place on the mid-sagittal slice : the landmarks "
-                               "follow the slice shown. Scroll : zoom ; hold Space : pan.</small>"),
+                               "follow the slice shown. Scroll : zoom ; middle-drag or hold Space : pan.</small>"),
                    lm_status, contrast, btn_reset]
 
     goto = SpinBox(label="go to case", min=1, max=len(order), value=1)
@@ -264,6 +281,14 @@ def annotate(project_root : str | Path, rater : str, modalities : list[str] | No
                 draw_marks(layer.data.copy())
             yield
 
+    def not_middle(drag) :
+        def wrapped(layer, event) :
+            if event.button != MIDDLE :
+                gen = drag(layer, event)
+                if gen is not None :
+                    yield from gen
+        return wrapped
+
     def add_landmark_layers() :
         image = state["image"]
         # Grab handles : transparent discs the size of the crosshair, carrying the labels
@@ -280,6 +305,9 @@ def annotate(project_root : str | Path, rater : str, modalities : list[str] | No
         dots = viewer.add_points(np.empty((0, 3)), ndim=3, name="centres", scale=image.spacing,
                                  size=DOT, border_width=0, out_of_slice_display=False)
         state["points"], state["centres"], state["crosshairs"] = pts, dots, hairs
+        # napari's select mode reacts to every button : a middle drag (pan) would also move or
+        # box-select landmarks. Instance copy of the class dict, set before mode = "select" below
+        pts._drag_modes = {m : (not_middle(f) if str(m) == "select" else f) for m, f in pts._drag_modes.items()}
         pts.events.data.connect(on_data)
         pts.events.mode.connect(select_mode_only)
         pts.selected_data.events.items_changed.connect(one_selected)
