@@ -72,6 +72,26 @@ AnnotationProject.load("/path/to/project").session("rater").measures()
 
 A new project uses v2 with `AnnotationProject.create(..., protocol_path=protocol_file(2))`.
 
+## Protocol v3
+
+`protocols/protocol_v3.json` is v2 with these changes (the numbering follows the vault's protocol note):
+
+- **Two superior folia are always placed.** Folium 1 is the first folium of the SZFg, and folium 2
+  is the next folium above it. The code says where folium 2 is attached: 2 = on the SZFg,
+  1 = on the culmen branch. Folium 2's position therefore measures where each rater puts the
+  culmen-side end of the SZFg.
+- **Bifid tick on both folia** whatever the code (`1+bifid2` is valid).
+- **Landmarks are placed for S** and hidden only for ND, on every item.
+- **Three SZFg folia** are coded S with the comment "3 folia".
+- **User definitions** of the B5 root (start of the white-matter thinning), the B5 branching
+  (VIIAf / VIIAt / VI division) and the culmen connection (proximal end of the culmen branch).
+- **Three new measures:** `sup1_conn_from_fastigium`, `sup2_conn_from_fastigium` and
+  `sup2_conn_from_culmen`.
+
+Use it with `protocol_file(3)`. Projects created with v2 keep their v2 answers. To move an existing
+project to v3, use `AnnotationProject.update_protocol(protocol_file(3))`; later saves are then
+checked against v3.
+
 ## What is included
 
 | Purpose | Packages |
