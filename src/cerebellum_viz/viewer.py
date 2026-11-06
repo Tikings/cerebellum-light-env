@@ -126,7 +126,9 @@ def annotate(project_root : str | Path, rater : str, modalities : list[str] | No
         lm_rows = [Label(value="<b>landmarks</b>"),
                    Label(value="<small>The codes show the landmarks they need, parked left of the image. "
                                "Drag each one into place on the mid-sagittal slice : the landmarks "
-                               "follow the slice shown. Scroll : zoom ; middle-drag or hold Space : pan.</small>"),
+                               "follow the slice shown. Scroll : zoom ; middle-drag or hold Space : pan. "
+                               "N : names on/off ; H : landmarks on/off (hidden landmarks "
+                               "cannot be dragged).</small>"),
                    lm_status, contrast, btn_reset]
 
     goto = SpinBox(label="go to case", min=1, max=len(order), value=1)
@@ -158,7 +160,9 @@ def annotate(project_root : str | Path, rater : str, modalities : list[str] | No
     # busy : set while the code itself edits the layers, so their events are ignored
     state = {"case" : None, "t0" : None, "ok" : False, "image" : None, "image_layer" : None,
              "points" : None, "centres" : None, "crosshairs" : None, "record" : {}, "moved" : set(), "stash" : {},
-             "busy" : False, "loading" : False}
+             "busy" : False, "loading" : False,
+             # display only, kept from case to case : landmark names (N) and landmarks (H) shown
+             "show_names" : True, "show_landmarks" : True}
 
     # ---- Landmarks ----
     def slice_index() :
@@ -179,8 +183,10 @@ def annotate(project_root : str | Path, rater : str, modalities : list[str] | No
             lm_status.value = ""
             return
         todo = [n for n in shown() if n not in state["moved"]]
+        hidden = [w for w, k in (("landmarks (H)", "show_landmarks"), ("names (N)", "show_names")) if not state[k]]
         lm_status.value = (f"slice {slice_index()} - {len(shown())} landmarks<br>"
-                           + (f"to drag into place : {', '.join(todo)}" if todo else "all in place"))
+                           + (f"to drag into place : {', '.join(todo)}" if todo else "all in place")
+                           + (f"<br>hidden : {', '.join(hidden)}" if hidden else ""))
 
     def render() :
         # Layers rebuilt from the record : the only source of truth for the landmarks
@@ -282,8 +288,9 @@ def annotate(project_root : str | Path, rater : str, modalities : list[str] | No
             yield
 
     def not_middle(drag) :
+        # Also no drag while the landmarks are hidden (H) : a landmark cannot be moved unseen
         def wrapped(layer, event) :
-            if event.button != MIDDLE :
+            if event.button != MIDDLE and state["show_landmarks"] :
                 gen = drag(layer, event)
                 if gen is not None :
                     yield from gen
@@ -305,6 +312,7 @@ def annotate(project_root : str | Path, rater : str, modalities : list[str] | No
         dots = viewer.add_points(np.empty((0, 3)), ndim=3, name="centres", scale=image.spacing,
                                  size=DOT, border_width=0, out_of_slice_display=False)
         state["points"], state["centres"], state["crosshairs"] = pts, dots, hairs
+        apply_display()
         # napari's select mode reacts to every button : a middle drag (pan) would also move or
         # box-select landmarks. Instance copy of the class dict, set before mode = "select" below
         pts._drag_modes = {m : (not_middle(f) if str(m) == "select" else f) for m, f in pts._drag_modes.items()}
@@ -314,6 +322,19 @@ def annotate(project_root : str | Path, rater : str, modalities : list[str] | No
         pts.mouse_drag_callbacks.append(follow_drag)
         viewer.layers.selection.active = pts
         pts.mode = "select"
+
+    def apply_display() :
+        # The N / H choices on the layers of the case shown (rebuilt for each case)
+        if state["points"] is None :
+            return
+        state["points"].text.visible = state["show_names"]
+        for layer in (state["points"], state["centres"], state["crosshairs"]) :
+            layer.visible = state["show_landmarks"]
+
+    def toggle(key) :
+        state[key] = not state[key]
+        apply_display()
+        update_lm_status()
 
     def set_contrast(*_) :
         if state["image_layer"] is not None and not state["loading"] :
@@ -450,6 +471,9 @@ def annotate(project_root : str | Path, rater : str, modalities : list[str] | No
         viewer.dims.events.current_step.connect(follow_slice)  # landmarks follow the slice
         contrast.changed.connect(set_contrast)
         btn_reset.changed.connect(viewer.reset_view)
+        # Viewer keys, whatever the active layer (napari binds neither key for points or images)
+        viewer.bind_key("n", lambda _ : toggle("show_names"), overwrite=True)
+        viewer.bind_key("h", lambda _ : toggle("show_landmarks"), overwrite=True)
         # Only the actions of the form : no layer list, no layer controls (add / delete / symbol)
         viewer.window._qt_viewer.dockLayerList.setVisible(False)
         viewer.window._qt_viewer.dockLayerControls.setVisible(False)
