@@ -33,9 +33,30 @@ lock).
 
 ```bash
 cerebellum-viz view <dataset_root> <sid> [-m t1w zscore] [--ses ses-01] [--3d]
-cerebellum-viz annotate <project_root> <rater>
+cerebellum-viz annotate <project_root> <rater> [--data-root <dataset_root>]
 cerebellum-viz status <project_root>
 ```
+
+### Where the images are read from
+
+An annotation project stores the dataset root it was created with (`dataset_root` in
+`project.json`). When the data are mounted at another place on your computer, give that place with
+`--data-root`; the project itself is left unchanged, so raters with different mounts can share it:
+
+```bash
+cerebellum-viz annotate /path/to/project rater_name --data-root /path/to/dataset/on/this/computer
+```
+
+The data root is checked before napari opens. If it cannot be read (not found, not a folder, no
+permission, or a network mount that has dropped), the command stops with one line saying which path
+failed and where it came from (`--data-root` or `project.json`), for example:
+
+```
+cerebellum-viz: error: Data root not found : /path/to/dataset (from project.json). Check that the disk is mounted, or point to the data with --data-root.
+```
+
+From Python, the same override is `annotate(project_root, rater, data_root=...)` or
+`AnnotationProject.load(project_root).session(rater, data_root=...)`.
 
 From Python or a notebook:
 

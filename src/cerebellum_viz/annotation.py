@@ -204,6 +204,32 @@ class Protocol :
             json.dump(self.spec, f, indent=2)
 
 
+class DataRootError(OSError) :
+    """The dataset root cannot be read : missing, not a folder, no permission or a dropped mount."""
+
+
+def check_data_root(path : str | Path, source : str) -> Path :
+    """
+    Raise DataRootError with a readable message if the dataset root cannot be listed.
+    `source` says where the path came from (--data-root or project.json), for the message.
+    Listing the folder, not only stat-ing it, also catches a network mount that has dropped.
+    """
+    path = Path(path).expanduser()
+    hint = "Check that the disk is mounted, or point to the data with --data-root."
+    try :
+        with os.scandir(path) as entries :
+            next(entries, None)
+    except FileNotFoundError :
+        raise DataRootError(f"Data root not found : {path} (from {source}). {hint}") from None
+    except NotADirectoryError :
+        raise DataRootError(f"Data root is not a folder : {path} (from {source}).") from None
+    except PermissionError :
+        raise DataRootError(f"No permission to read the data root : {path} (from {source}).") from None
+    except OSError as e :
+        raise DataRootError(f"Data root not accessible : {path} (from {source}) : {e.strerror or e}. {hint}") from None
+    return path
+
+
 ANNOTATION_VERSION = 1
 
 class AnnotationProject :
@@ -348,8 +374,8 @@ class AnnotationProject :
         self._write_json()
         return raters[name]
 
-    def session(self, name : str, layout : dict = DEFAULT_LAYOUT) :
-        return AnnotationSession(self, name, layout)
+    def session(self, name : str, layout : dict = DEFAULT_LAYOUT, data_root : str | Path | None = None) :
+        return AnnotationSession(self, name, layout, data_root)
 
     @property
     def protocol(self):
@@ -464,7 +490,13 @@ class AnnotationSession :
     LANDMARK_COLUMNS = ["case", "save_id", "landmark", "i", "j", "k", "x_mm", "y_mm", "z_mm",
                         "protocol_version"]
 
-    def __init__(self, project : AnnotationProject, rater : str, layout : dict = DEFAULT_LAYOUT) :
+    def __init__(self, project : AnnotationProject, rater : str, layout : dict = DEFAULT_LAYOUT,
+                 data_root : str | Path | None = None) :
+        """
+        data_root : the dataset root on this computer, overriding the one stored in project.json
+        (the same data can be mounted at a different place on each rater's machine). Checked here,
+        so a missing or unreadable root fails before any case is opened.
+        """
         if rater not in project.meta["raters"] :
             raise KeyError(f"Rater '{rater}' not registered : use AnnotationProject.add_rater. "
                            f"Registered : {list(project.meta['raters'])}")
@@ -473,7 +505,9 @@ class AnnotationSession :
         self.protocol = project.protocol  # answers are always written with the current protocol
         self.answers_path = project.root / self.info["answers"]
         self.landmarks_path = self.answers_path.with_name(f"{self.answers_path.stem}_landmarks.csv")
-        self.dataset = Dataset(project.meta["dataset_root"], "annotation", layout)
+        root = (check_data_root(data_root, "--data-root") if data_root is not None
+                else check_data_root(project.meta["dataset_root"], "project.json"))
+        self.dataset = Dataset(root, "annotation", layout)
         self._key = self._load_key()
         self._sids = None  # pid -> sid, read from master.csv only when an image is needed
         self._answers = self._load_answers()

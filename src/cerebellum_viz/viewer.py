@@ -36,7 +36,7 @@ UNANSWERED = ""  # blank first entry : a case cannot be saved with a default lef
 MIDDLE = 3  # napari's mouse button numbers : 1 left, 2 right, 3 middle
 
 def annotate(project_root : str | Path, rater : str, modalities : list[str] | None = None,
-             layout : dict = DEFAULT_LAYOUT, viewer=None) :
+             layout : dict = DEFAULT_LAYOUT, viewer=None, data_root : str | Path | None = None) :
     """
     Open a napari viewer with the annotation form docked on the right, on the rater's
     first pending case. Blinding : the viewer only ever shows "case i / N" and layer
@@ -47,7 +47,12 @@ def annotate(project_root : str | Path, rater : str, modalities : list[str] | No
     the slice they are saved on is the case's mid-sagittal slice. napari's layer panels are
     hidden (contrast is in the form), and anything that adds, removes or multi-selects points
     is undone.
+    `data_root` overrides the dataset root stored in project.json (the data mounted elsewhere on
+    this computer).
     """
+    # First, before Qt is loaded : a project or data root that cannot be read fails immediately
+    session = AnnotationProject.load(project_root).session(rater, layout, data_root=data_root)
+
     # Imported here so the rest of the module works without napari installed
     import time
     import numpy as np
@@ -59,7 +64,6 @@ def annotate(project_root : str | Path, rater : str, modalities : list[str] | No
     from qtpy.QtCore import Qt, QTimer
     from qtpy.QtWidgets import QComboBox
 
-    session = AnnotationProject.load(project_root).session(rater, layout)
     protocol = session.protocol
     order = session.order
     viewer = viewer or napari.Viewer(title=f"Annotation - {rater}")
