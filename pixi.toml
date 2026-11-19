@@ -33,3 +33,9 @@ cerebellum_viz = { path = ".", editable = true }   # the `pip: -e .` of environm
 
 [tasks]
 viz = "cerebellum-viz"
+
+
+[activation.env]
+# own cache for the env: its fontconfig (newer than the OS one) segfaulted Qt on Ubuntu 24.04 when reading the
+# shared ~/.cache/fontconfig written by the system (napari crash at the welcome screen, 2026-11-19)
+XDG_CACHE_HOME = "$PIXI_PROJECT_ROOT/.pixi/cache"
